@@ -1,0 +1,643 @@
+
+<h2 class="sr-only">Cinematic Clash: Marvel vs DC Data Universe — an interactive analytics dashboard comparing MCU and DCEU performance across financial, audience, and strategy metrics</h2>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap');
+  :root {
+    --mcu: #E62429; --dc: #0476F2;
+    --mcu-dim: rgba(230,36,41,0.15); --dc-dim: rgba(4,118,242,0.15);
+    --bg: #0a0c14; --card: #111827; --card2: #1a2235; --border: rgba(255,255,255,0.08);
+    --text: #f0f2f8; --muted: #8892a4; --accent: #ffd700;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body, .dash { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+  .dash { min-height: 600px; padding: 0; }
+
+  /* HEADER */
+  .header { background: linear-gradient(135deg, #0d0f1a 0%, #111827 100%); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .logo-mcu { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--mcu); letter-spacing: 3px; text-shadow: 0 0 20px rgba(230,36,41,0.5); }
+  .logo-dc { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--dc); letter-spacing: 3px; text-shadow: 0 0 20px rgba(4,118,242,0.5); }
+  .header-center { text-align: center; }
+  .title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 4px; color: var(--accent); }
+  .tagline { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* NAV TABS */
+  .nav { display: flex; gap: 4px; padding: 12px 24px 0; background: #0d0f1a; border-bottom: 1px solid var(--border); }
+  .tab { font-size: 12px; font-weight: 500; padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; color: var(--muted); border: 1px solid transparent; border-bottom: none; transition: all 0.2s; letter-spacing: 0.5px; }
+  .tab:hover { color: var(--text); background: var(--card2); }
+  .tab.active { background: var(--card); color: var(--accent); border-color: var(--border); }
+
+  /* FILTERS */
+  .filters { display: flex; gap: 12px; padding: 12px 24px; background: var(--card); border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .filter-btn { font-size: 11px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+  .filter-btn:hover { border-color: rgba(255,215,0,0.4); color: var(--text); }
+  .filter-btn.active-mcu { background: var(--mcu-dim); border-color: var(--mcu); color: #ff6b6e; }
+  .filter-btn.active-dc { background: var(--dc-dim); border-color: var(--dc); color: #5bb3ff; }
+  .filter-btn.active-all { background: rgba(255,215,0,0.1); border-color: var(--accent); color: var(--accent); }
+  .year-range { display: flex; align-items: center; gap: 8px; }
+  .year-range input[type=range] { width: 100px; accent-color: var(--accent); }
+  .year-range span { font-size: 11px; color: var(--accent); min-width: 32px; }
+  .type-select { font-size: 11px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card2); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+  /* CONTENT */
+  .content { padding: 20px 24px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* KPI CARDS */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .kpi.mcu::before { background: var(--mcu); }
+  .kpi.dc::before { background: var(--dc); }
+  .kpi.gold::before { background: var(--accent); }
+  .kpi.both::before { background: linear-gradient(90deg, var(--mcu), var(--dc)); }
+  .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .kpi-value { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; }
+  .kpi-value.mcu-color { color: var(--mcu); }
+  .kpi-value.dc-color { color: var(--dc); }
+  .kpi-value.gold-color { color: var(--accent); }
+  .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* CHART ROWS */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .chart-row.single { grid-template-columns: 1fr; }
+  .chart-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .chart-title { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* LEGEND */
+  .legend { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* INSIGHT BADGE */
+  .insight { background: rgba(255,215,0,0.07); border: 1px solid rgba(255,215,0,0.2); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: #c8a400; margin-top: 10px; line-height: 1.5; }
+
+  /* TOP 10 TABLE */
+  .top-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .top-table th { color: var(--muted); font-weight: 500; text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .top-table td { padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .top-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 500; }
+  .badge-mcu { background: var(--mcu-dim); color: #ff6b6e; }
+  .badge-dc { background: var(--dc-dim); color: #5bb3ff; }
+  .rank { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: var(--muted); }
+  .bar-mini { height: 4px; border-radius: 2px; margin-top: 3px; }
+
+  /* STAT ROWS */
+  .stat-compare { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 20px; }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .vs-label { font-size: 10px; color: var(--muted); text-align: center; }
+  .vs-bar-track { height: 6px; background: var(--card2); border-radius: 3px; position: relative; overflow: hidden; }
+  .vs-bar-fill { height: 100%; position: absolute; top: 0; }
+</style>
+
+<div class="dash">
+  <div class="header">
+    <div class="logo-mcu">MARVEL</div>
+    <div class="header-center">
+      <div class="title">Cinematic Clash: Marvel vs DC</div>
+      <div class="tagline">Where Data Meets Cinematic Universes</div>
+    </div>
+    <div class="logo-dc">DC</div>
+  </div>
+
+  <div class="nav">
+    <div class="tab active" onclick="switchTab('overview')">Overview</div>
+    <div class="tab" onclick="switchTab('financial')">Financial Analysis</div>
+    <div class="tab" onclick="switchTab('audience')">Audience Insights</div>
+    <div class="tab" onclick="switchTab('strategy')">Strategy</div>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">Universe</span>
+      <button class="filter-btn active-all" onclick="setUniverse('all', this)">All</button>
+      <button class="filter-btn" onclick="setUniverse('MCU', this)">MCU</button>
+      <button class="filter-btn" onclick="setUniverse('DCEU', this)">DC</button>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Type</span>
+      <select class="type-select" id="typeFilter" onchange="updateCharts()">
+        <option value="all">All</option>
+        <option value="Movie">Movies</option>
+        <option value="Show">Shows</option>
+      </select>
+    </div>
+    <div class="filter-group year-range">
+      <span class="filter-label">From</span>
+      <input type="range" id="yearFrom" min="2008" max="2024" value="2008" step="1" oninput="document.getElementById('yfLabel').textContent=this.value;updateCharts()">
+      <span id="yfLabel">2008</span>
+    </div>
+    <div class="filter-group year-range">
+      <span class="filter-label">To</span>
+      <input type="range" id="yearTo" min="2008" max="2024" value="2024" step="1" oninput="document.getElementById('ytLabel').textContent=this.value;updateCharts()">
+      <span id="ytLabel">2024</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- OVERVIEW PAGE -->
+    <div class="page active" id="page-overview">
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Revenue over time</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC</div>
+          </div>
+          <div class="chart-wrap" style="height:200px"><canvas id="revenueTime" role="img" aria-label="Line chart of MCU vs DC revenue over time"></canvas></div>
+          <div class="insight" id="revenueInsight"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Top 10 highest-grossing films</div>
+          <div style="overflow-y:auto;max-height:280px" id="top10Table"></div>
+        </div>
+      </div>
+      <div class="chart-row triple">
+        <div class="chart-card">
+          <div class="chart-title">Total films released</div>
+          <div class="chart-wrap" style="height:150px"><canvas id="filmCount" role="img" aria-label="Bar chart of film count by universe"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Success rate (ROI > 2x)</div>
+          <div class="chart-wrap" style="height:150px"><canvas id="successRate" role="img" aria-label="Doughnut chart of success rate"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Avg IMDb rating</div>
+          <div class="chart-wrap" style="height:150px"><canvas id="ratingComp" role="img" aria-label="Bar chart comparing average ratings"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCIAL PAGE -->
+    <div class="page" id="page-financial">
+      <div class="kpi-grid" id="finKpiGrid"></div>
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Profit vs Budget (movies only)</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC</div>
+          </div>
+          <div class="chart-wrap" style="height:220px"><canvas id="profitBubble" role="img" aria-label="Scatter plot of profit vs budget"></canvas></div>
+          <div class="insight" id="profitInsight"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">ROI distribution</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC</div>
+          </div>
+          <div class="chart-wrap" style="height:220px"><canvas id="roiDist" role="img" aria-label="Bar chart showing ROI distribution"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Phase/era-wise revenue comparison</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC</div>
+          </div>
+          <div class="chart-wrap" style="height:200px"><canvas id="phaseRev" role="img" aria-label="Grouped bar chart of revenue by phase or era"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Head-to-head financial comparison</div>
+          <div id="headToHead" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIENCE PAGE -->
+    <div class="page" id="page-audience">
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">IMDb rating vs box office revenue</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC</div>
+          </div>
+          <div class="chart-wrap" style="height:230px"><canvas id="imdbScatter" role="img" aria-label="Scatter plot of IMDb rating vs revenue"></canvas></div>
+          <div class="insight" id="imdbInsight"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Rotten Tomatoes score vs revenue</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC</div>
+          </div>
+          <div class="chart-wrap" style="height:230px"><canvas id="rtScatter" role="img" aria-label="Scatter plot of RT score vs revenue"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-row triple">
+        <div class="chart-card">
+          <div class="chart-title">Genre performance (avg revenue)</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="genrePerf" role="img" aria-label="Bar chart of genre performance"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">IMDb ratings distribution</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="ratingDist" role="img" aria-label="Bar chart of rating distribution"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">RT score distribution</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="rtDist" role="img" aria-label="Bar chart of RT score distribution"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STRATEGY PAGE -->
+    <div class="page" id="page-strategy">
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Team-up vs solo movie performance</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#E62429"></div>MCU Team-up</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(230,36,41,0.4)"></div>MCU Solo</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0476F2"></div>DC Team-up</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(4,118,242,0.4)"></div>DC Solo</div>
+          </div>
+          <div class="chart-wrap" style="height:220px"><canvas id="teamupChart" role="img" aria-label="Bar chart of team-up vs solo performance"></canvas></div>
+          <div class="insight" id="teamupInsight"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Consistency analysis (ROI variance)</div>
+          <div class="chart-wrap" style="height:220px"><canvas id="consistencyChart" role="img" aria-label="Chart showing ROI consistency over time"></canvas></div>
+          <div class="insight" id="consistencyInsight"></div>
+        </div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Movies vs shows comparison</div>
+          <div class="chart-wrap" style="height:180px"><canvas id="typeChart" role="img" aria-label="Comparison of movie vs show performance"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Key strategic takeaways</div>
+          <div id="strategySummary" style="margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const RAW = [
+  {title:"Iron Man",u:"MCU",type:"Movie",year:2008,phase:"Phase 1",genre:"Action",budget:140,bo:585,imdb:7.9,rt:94,teamup:0},
+  {title:"The Incredible Hulk",u:"MCU",type:"Movie",year:2008,phase:"Phase 1",genre:"Action",budget:150,bo:264,imdb:6.6,rt:67,teamup:0},
+  {title:"Iron Man 2",u:"MCU",type:"Movie",year:2010,phase:"Phase 1",genre:"Action",budget:200,bo:623,imdb:7.0,rt:71,teamup:0},
+  {title:"Thor",u:"MCU",type:"Movie",year:2011,phase:"Phase 1",genre:"Fantasy",budget:150,bo:449,imdb:7.0,rt:77,teamup:0},
+  {title:"Captain America TFA",u:"MCU",type:"Movie",year:2011,phase:"Phase 1",genre:"Action",budget:140,bo:370,imdb:6.9,rt:80,teamup:0},
+  {title:"The Avengers",u:"MCU",type:"Movie",year:2012,phase:"Phase 1",genre:"Action",budget:220,bo:1518,imdb:8.0,rt:91,teamup:1},
+  {title:"Iron Man 3",u:"MCU",type:"Movie",year:2013,phase:"Phase 2",genre:"Action",budget:200,bo:1215,imdb:7.1,rt:79,teamup:0},
+  {title:"Thor: The Dark World",u:"MCU",type:"Movie",year:2013,phase:"Phase 2",genre:"Fantasy",budget:150,bo:644,imdb:6.8,rt:66,teamup:0},
+  {title:"CA: Winter Soldier",u:"MCU",type:"Movie",year:2014,phase:"Phase 2",genre:"Action",budget:170,bo:714,imdb:7.8,rt:90,teamup:0},
+  {title:"Guardians of the Galaxy",u:"MCU",type:"Movie",year:2014,phase:"Phase 2",genre:"Sci-Fi",budget:170,bo:773,imdb:8.0,rt:92,teamup:0},
+  {title:"Avengers: AoU",u:"MCU",type:"Movie",year:2015,phase:"Phase 2",genre:"Action",budget:250,bo:1405,imdb:7.3,rt:76,teamup:1},
+  {title:"Ant-Man",u:"MCU",type:"Movie",year:2015,phase:"Phase 2",genre:"Sci-Fi",budget:130,bo:519,imdb:7.3,rt:83,teamup:0},
+  {title:"CA: Civil War",u:"MCU",type:"Movie",year:2016,phase:"Phase 3",genre:"Action",budget:250,bo:1153,imdb:7.8,rt:90,teamup:1},
+  {title:"Doctor Strange",u:"MCU",type:"Movie",year:2016,phase:"Phase 3",genre:"Fantasy",budget:165,bo:677,imdb:7.5,rt:89,teamup:0},
+  {title:"GotG Vol 2",u:"MCU",type:"Movie",year:2017,phase:"Phase 3",genre:"Sci-Fi",budget:200,bo:863,imdb:7.6,rt:85,teamup:0},
+  {title:"Spider-Man: Homecoming",u:"MCU",type:"Movie",year:2017,phase:"Phase 3",genre:"Action",budget:175,bo:880,imdb:7.4,rt:92,teamup:0},
+  {title:"Thor: Ragnarok",u:"MCU",type:"Movie",year:2017,phase:"Phase 3",genre:"Comedy",budget:180,bo:853,imdb:7.9,rt:93,teamup:0},
+  {title:"Black Panther",u:"MCU",type:"Movie",year:2018,phase:"Phase 3",genre:"Action",budget:200,bo:1347,imdb:7.3,rt:96,teamup:0},
+  {title:"Avengers: IW",u:"MCU",type:"Movie",year:2018,phase:"Phase 3",genre:"Action",budget:325,bo:2048,imdb:8.4,rt:85,teamup:1},
+  {title:"Avengers: Endgame",u:"MCU",type:"Movie",year:2019,phase:"Phase 3",genre:"Action",budget:356,bo:2797,imdb:8.4,rt:94,teamup:1},
+  {title:"Spider-Man: FFH",u:"MCU",type:"Movie",year:2019,phase:"Phase 3",genre:"Action",budget:160,bo:1131,imdb:7.4,rt:90,teamup:0},
+  {title:"Black Widow",u:"MCU",type:"Movie",year:2021,phase:"Phase 4",genre:"Action",budget:200,bo:379,imdb:6.7,rt:79,teamup:0},
+  {title:"Shang-Chi",u:"MCU",type:"Movie",year:2021,phase:"Phase 4",genre:"Action",budget:150,bo:432,imdb:7.4,rt:92,teamup:0},
+  {title:"Eternals",u:"MCU",type:"Movie",year:2021,phase:"Phase 4",genre:"Fantasy",budget:200,bo:402,imdb:6.3,rt:47,teamup:0},
+  {title:"Spider-Man: NWH",u:"MCU",type:"Movie",year:2021,phase:"Phase 4",genre:"Action",budget:200,bo:1920,imdb:8.2,rt:93,teamup:1},
+  {title:"DS: MoM",u:"MCU",type:"Movie",year:2022,phase:"Phase 4",genre:"Fantasy",budget:200,bo:955,imdb:6.9,rt:74,teamup:1},
+  {title:"Thor: L&T",u:"MCU",type:"Movie",year:2022,phase:"Phase 4",genre:"Comedy",budget:250,bo:760,imdb:6.2,rt:63,teamup:0},
+  {title:"BP: Wakanda Forever",u:"MCU",type:"Movie",year:2022,phase:"Phase 4",genre:"Action",budget:250,bo:859,imdb:6.7,rt:84,teamup:0},
+  {title:"Ant-Man Quantumania",u:"MCU",type:"Movie",year:2023,phase:"Phase 5",genre:"Sci-Fi",budget:200,bo:476,imdb:6.1,rt:46,teamup:0},
+  {title:"Guardians Vol 3",u:"MCU",type:"Movie",year:2023,phase:"Phase 5",genre:"Sci-Fi",budget:250,bo:845,imdb:7.9,rt:82,teamup:0},
+  {title:"The Marvels",u:"MCU",type:"Movie",year:2023,phase:"Phase 5",genre:"Action",budget:270,bo:206,imdb:5.6,rt:62,teamup:1},
+  {title:"WandaVision",u:"MCU",type:"Show",year:2021,phase:"Phase 4",genre:"Drama",budget:0,bo:0,imdb:7.9,rt:91,teamup:0},
+  {title:"Falcon & WS",u:"MCU",type:"Show",year:2021,phase:"Phase 4",genre:"Action",budget:0,bo:0,imdb:7.2,rt:85,teamup:0},
+  {title:"Loki",u:"MCU",type:"Show",year:2021,phase:"Phase 4",genre:"Sci-Fi",budget:0,bo:0,imdb:8.2,rt:92,teamup:0},
+  {title:"Hawkeye",u:"MCU",type:"Show",year:2021,phase:"Phase 4",genre:"Action",budget:0,bo:0,imdb:7.5,rt:92,teamup:0},
+  {title:"Moon Knight",u:"MCU",type:"Show",year:2022,phase:"Phase 4",genre:"Fantasy",budget:0,bo:0,imdb:7.3,rt:86,teamup:0},
+  {title:"Ms Marvel",u:"MCU",type:"Show",year:2022,phase:"Phase 4",genre:"Comedy",budget:0,bo:0,imdb:6.2,rt:98,teamup:0},
+  {title:"She-Hulk",u:"MCU",type:"Show",year:2022,phase:"Phase 4",genre:"Comedy",budget:0,bo:0,imdb:5.2,rt:77,teamup:0},
+  {title:"Secret Invasion",u:"MCU",type:"Show",year:2023,phase:"Phase 5",genre:"Drama",budget:0,bo:0,imdb:5.9,rt:53,teamup:0},
+  {title:"Echo",u:"MCU",type:"Show",year:2024,phase:"Phase 5",genre:"Action",budget:0,bo:0,imdb:6.0,rt:70,teamup:0},
+  {title:"Man of Steel",u:"DCEU",type:"Movie",year:2013,phase:"Snyder Era",genre:"Action",budget:225,bo:668,imdb:7.1,rt:56,teamup:0},
+  {title:"Batman v Superman",u:"DCEU",type:"Movie",year:2016,phase:"Snyder Era",genre:"Action",budget:250,bo:873,imdb:6.5,rt:29,teamup:1},
+  {title:"Suicide Squad",u:"DCEU",type:"Movie",year:2016,phase:"Snyder Era",genre:"Action",budget:175,bo:746,imdb:5.9,rt:26,teamup:1},
+  {title:"Wonder Woman",u:"DCEU",type:"Movie",year:2017,phase:"Snyder Era",genre:"Action",budget:149,bo:822,imdb:7.4,rt:93,teamup:0},
+  {title:"Justice League",u:"DCEU",type:"Movie",year:2017,phase:"Snyder Era",genre:"Action",budget:300,bo:657,imdb:6.1,rt:40,teamup:1},
+  {title:"Aquaman",u:"DCEU",type:"Movie",year:2018,phase:"Snyder Era",genre:"Fantasy",budget:160,bo:1148,imdb:6.8,rt:65,teamup:0},
+  {title:"Shazam",u:"DCEU",type:"Movie",year:2019,phase:"Snyder Era",genre:"Comedy",budget:100,bo:366,imdb:7.0,rt:90,teamup:0},
+  {title:"Birds of Prey",u:"DCEU",type:"Movie",year:2020,phase:"Snyder Era",genre:"Action",budget:85,bo:205,imdb:6.1,rt:79,teamup:1},
+  {title:"Wonder Woman 1984",u:"DCEU",type:"Movie",year:2020,phase:"Snyder Era",genre:"Action",budget:200,bo:166,imdb:5.4,rt:58,teamup:0},
+  {title:"The Suicide Squad",u:"DCEU",type:"Movie",year:2021,phase:"Post-Snyder",genre:"Action",budget:185,bo:168,imdb:7.2,rt:90,teamup:1},
+  {title:"Black Adam",u:"DCEU",type:"Movie",year:2022,phase:"Post-Snyder",genre:"Action",budget:200,bo:393,imdb:6.3,rt:39,teamup:0},
+  {title:"Shazam: FotG",u:"DCEU",type:"Movie",year:2023,phase:"Post-Snyder",genre:"Comedy",budget:125,bo:134,imdb:6.0,rt:49,teamup:0},
+  {title:"The Flash",u:"DCEU",type:"Movie",year:2023,phase:"Post-Snyder",genre:"Sci-Fi",budget:200,bo:271,imdb:6.7,rt:63,teamup:1},
+  {title:"Blue Beetle",u:"DCEU",type:"Movie",year:2023,phase:"Post-Snyder",genre:"Sci-Fi",budget:120,bo:130,imdb:6.0,rt:78,teamup:0},
+  {title:"Aquaman 2",u:"DCEU",type:"Movie",year:2023,phase:"Post-Snyder",genre:"Fantasy",budget:205,bo:434,imdb:5.6,rt:34,teamup:0},
+  {title:"Peacemaker",u:"DCEU",type:"Show",year:2022,phase:"Post-Snyder",genre:"Action",budget:0,bo:0,imdb:8.3,rt:94,teamup:0},
+];
+
+let uFilter = 'all', charts = {}, chartInstances = {};
+
+function getData() {
+  const yf = +document.getElementById('yearFrom').value;
+  const yt = +document.getElementById('yearTo').value;
+  const tf = document.getElementById('typeFilter').value;
+  return RAW.filter(d => {
+    if (uFilter !== 'all' && d.u !== uFilter) return false;
+    if (tf !== 'all' && d.type !== tf) return false;
+    if (d.year < yf || d.year > yt) return false;
+    return true;
+  });
+}
+
+function roi(d) { return d.budget > 0 ? d.bo / d.budget : 0; }
+function profit(d) { return d.bo - d.budget; }
+function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function sum(arr) { return arr.reduce((a,b)=>a+b,0); }
+function fmt(n) { return n >= 1000 ? '$'+Math.round(n/1000)+'B' : '$'+Math.round(n)+'M'; }
+
+function setUniverse(u, btn) {
+  uFilter = u;
+  document.querySelectorAll('.filter-btn').forEach(b => b.className = 'filter-btn');
+  if (u === 'all') btn.className = 'filter-btn active-all';
+  else if (u === 'MCU') btn.className = 'filter-btn active-mcu';
+  else btn.className = 'filter-btn active-dc';
+  updateCharts();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  updateCharts();
+}
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function mkChart(id, config) {
+  destroyChart(id);
+  const el = document.getElementById(id);
+  if (!el) return;
+  chartInstances[id] = new Chart(el, config);
+}
+
+const GRID = { color: 'rgba(255,255,255,0.05)' };
+const TICK = { color: '#8892a4', font: { size: 10, family: 'DM Sans' } };
+
+function updateCharts() {
+  const data = getData();
+  const mcu = data.filter(d => d.u === 'MCU');
+  const dc = data.filter(d => d.u === 'DCEU');
+  const mcuM = mcu.filter(d => d.type === 'Movie' && d.budget > 0);
+  const dcM = dc.filter(d => d.type === 'Movie' && d.budget > 0);
+
+  const activePage = document.querySelector('.page.active')?.id || 'page-overview';
+
+  if (activePage === 'page-overview') renderOverview(data, mcu, dc, mcuM, dcM);
+  if (activePage === 'page-financial') renderFinancial(data, mcu, dc, mcuM, dcM);
+  if (activePage === 'page-audience') renderAudience(data, mcu, dc);
+  if (activePage === 'page-strategy') renderStrategy(data, mcu, dc, mcuM, dcM);
+}
+
+function renderOverview(data, mcu, dc, mcuM, dcM) {
+  const mcuRev = sum(mcuM.map(d=>d.bo));
+  const dcRev = sum(dcM.map(d=>d.bo));
+  const mcuROI = avg(mcuM.map(roi));
+  const dcROI = avg(dcM.map(roi));
+  const mcuSucc = mcuM.filter(d=>roi(d)>2).length/Math.max(mcuM.length,1)*100;
+  const dcSucc = dcM.filter(d=>roi(d)>2).length/Math.max(dcM.length,1)*100;
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi mcu"><div class="kpi-label">MCU Total Revenue</div><div class="kpi-value mcu-color">${fmt(mcuRev)}</div><div class="kpi-sub">${mcuM.length} movies</div></div>
+    <div class="kpi dc"><div class="kpi-label">DC Total Revenue</div><div class="kpi-value dc-color">${fmt(dcRev)}</div><div class="kpi-sub">${dcM.length} movies</div></div>
+    <div class="kpi mcu"><div class="kpi-label">MCU Avg ROI</div><div class="kpi-value mcu-color">${mcuROI.toFixed(1)}x</div><div class="kpi-sub">Return on investment</div></div>
+    <div class="kpi dc"><div class="kpi-label">DC Avg ROI</div><div class="kpi-value dc-color">${dcROI.toFixed(1)}x</div><div class="kpi-sub">Return on investment</div></div>
+    <div class="kpi mcu"><div class="kpi-label">MCU Success Rate</div><div class="kpi-value mcu-color">${Math.round(mcuSucc)}%</div><div class="kpi-sub">ROI > 2x</div></div>
+    <div class="kpi dc"><div class="kpi-label">DC Success Rate</div><div class="kpi-value dc-color">${Math.round(dcSucc)}%</div><div class="kpi-sub">ROI > 2x</div></div>
+  `;
+
+  // Revenue over time
+  const years = [...new Set(data.filter(d=>d.bo>0).map(d=>d.year))].sort();
+  const mcuByYear = years.map(y => sum(mcu.filter(d=>d.year===y&&d.bo>0).map(d=>d.bo)));
+  const dcByYear = years.map(y => sum(dc.filter(d=>d.year===y&&d.bo>0).map(d=>d.bo)));
+  mkChart('revenueTime', { type:'line', data:{ labels:years, datasets:[
+    {label:'MCU',data:mcuByYear,borderColor:'#E62429',backgroundColor:'rgba(230,36,41,0.1)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#E62429'},
+    {label:'DC',data:dcByYear,borderColor:'#0476F2',backgroundColor:'rgba(4,118,242,0.1)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#0476F2'}
+  ]}, options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+    x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:{...TICK,callback:v=>'$'+Math.round(v/1000)+'B'}}
+  }}});
+
+  const topMax = avg(data.filter(d=>d.bo>0).map(d=>d.bo).sort((a,b)=>b-a).slice(0,1));
+  const topMovies = [...data].filter(d=>d.bo>0).sort((a,b)=>b.bo-a.bo).slice(0,10);
+  document.getElementById('top10Table').innerHTML = `<table class="top-table">
+    <thead><tr><th>#</th><th>Title</th><th>Universe</th><th>Revenue</th><th></th></tr></thead>
+    <tbody>${topMovies.map((d,i)=>`<tr>
+      <td class="rank">${i+1}</td>
+      <td style="font-size:11px;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${d.title}</td>
+      <td><span class="badge badge-${d.u==='MCU'?'mcu':'dc'}">${d.u==='MCU'?'MCU':'DC'}</span></td>
+      <td style="font-weight:500;font-size:12px">${fmt(d.bo)}</td>
+      <td style="width:60px"><div class="bar-mini" style="width:${Math.round(d.bo/2797*60)}px;background:${d.u==='MCU'?'#E62429':'#0476F2'}"></div></td>
+    </tr>`).join('')}</tbody></table>`;
+
+  const mcuRevBI = mcuRev > dcRev ? 'MCU has earned ' + fmt(mcuRev - dcRev) + ' more than DC in total box office revenue.' : 'DC has earned ' + fmt(dcRev - mcuRev) + ' more than MCU in total box office revenue.';
+  document.getElementById('revenueInsight').textContent = mcuRevBI;
+
+  // Film count
+  mkChart('filmCount', { type:'bar', data:{ labels:['MCU Movies','DC Movies','MCU Shows','DC Shows'], datasets:[{
+    data:[mcuM.length, dcM.length, mcu.filter(d=>d.type==='Show').length, dc.filter(d=>d.type==='Show').length],
+    backgroundColor:['#E62429','#0476F2','rgba(230,36,41,0.5)','rgba(4,118,242,0.5)'],
+    borderRadius:4,borderWidth:0
+  }]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK}}}});
+
+  // Success rate donut
+  mkChart('successRate', { type:'doughnut', data:{ labels:['MCU Hit','MCU Miss','DC Hit','DC Miss'], datasets:[{
+    data:[mcuM.filter(d=>roi(d)>2).length, mcuM.filter(d=>roi(d)<=2).length, dcM.filter(d=>roi(d)>2).length, dcM.filter(d=>roi(d)<=2).length],
+    backgroundColor:['#E62429','rgba(230,36,41,0.2)','#0476F2','rgba(4,118,242,0.2)'],
+    borderWidth:0,hoverOffset:4
+  }]}, options:{ responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false}}}});
+
+  // Avg rating
+  mkChart('ratingComp', { type:'bar', data:{ labels:['MCU IMDb','DC IMDb','MCU RT','DC RT'], datasets:[{
+    data:[avg(mcu.map(d=>d.imdb)).toFixed(1), avg(dc.map(d=>d.imdb)).toFixed(1), avg(mcu.filter(d=>d.rt>0).map(d=>d.rt)).toFixed(0), avg(dc.filter(d=>d.rt>0).map(d=>d.rt)).toFixed(0)],
+    backgroundColor:['#E62429','#0476F2','rgba(230,36,41,0.6)','rgba(4,118,242,0.6)'],
+    borderRadius:4,borderWidth:0
+  }]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK,min:0}}}});
+}
+
+function renderFinancial(data, mcu, dc, mcuM, dcM) {
+  const mcuRev = sum(mcuM.map(d=>d.bo)); const dcRev = sum(dcM.map(d=>d.bo));
+  const mcuBudg = sum(mcuM.map(d=>d.budget)); const dcBudg = sum(dcM.map(d=>d.budget));
+  const mcuProfit = sum(mcuM.map(profit)); const dcProfit = sum(dcM.map(profit));
+  const mcuROI = avg(mcuM.map(roi)); const dcROI = avg(dcM.map(roi));
+
+  document.getElementById('finKpiGrid').innerHTML = `
+    <div class="kpi mcu"><div class="kpi-label">MCU Total Profit</div><div class="kpi-value mcu-color">${fmt(mcuProfit)}</div></div>
+    <div class="kpi dc"><div class="kpi-label">DC Total Profit</div><div class="kpi-value dc-color">${fmt(dcProfit)}</div></div>
+    <div class="kpi mcu"><div class="kpi-label">MCU Total Budget</div><div class="kpi-value mcu-color">${fmt(mcuBudg)}</div></div>
+    <div class="kpi dc"><div class="kpi-label">DC Total Budget</div><div class="kpi-value dc-color">${fmt(dcBudg)}</div></div>
+    <div class="kpi both"><div class="kpi-label">MCU Avg ROI</div><div class="kpi-value mcu-color">${mcuROI.toFixed(2)}x</div></div>
+    <div class="kpi both"><div class="kpi-label">DC Avg ROI</div><div class="kpi-value dc-color">${dcROI.toFixed(2)}x</div></div>
+  `;
+
+  // Scatter profit vs budget
+  mkChart('profitBubble', { type:'scatter', data:{ datasets:[
+    {label:'MCU',data:mcuM.map(d=>({x:d.budget,y:profit(d),r:6})),backgroundColor:'rgba(230,36,41,0.7)',pointStyle:'circle'},
+    {label:'DC',data:dcM.map(d=>({x:d.budget,y:profit(d),r:6})),backgroundColor:'rgba(4,118,242,0.7)',pointStyle:'triangle'}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:d=>`Budget: ${fmt(d.raw.x)}, Profit: ${fmt(d.raw.y)}`}}},
+  scales:{x:{grid:GRID,ticks:{...TICK,callback:v=>'$'+v+'M'},title:{display:true,text:'Budget ($M)',color:'#8892a4',font:{size:10}}},
+          y:{grid:GRID,ticks:{...TICK,callback:v=>'$'+Math.round(v/1000)+'B'},title:{display:true,text:'Profit',color:'#8892a4',font:{size:10}}}}}});
+
+  document.getElementById('profitInsight').textContent = `MCU avg profit per movie: ${fmt(avg(mcuM.map(profit)))} vs DC: ${fmt(avg(dcM.map(profit)))}. MCU shows significantly higher profitability per production.`;
+
+  // ROI distribution
+  const roiBuckets = ['<1x','1-2x','2-3x','3-5x','5x+'];
+  const bucketFn = r => r<1?0:r<2?1:r<3?2:r<5?3:4;
+  const mcuROIBuckets = [0,0,0,0,0]; mcuM.forEach(d=>mcuROIBuckets[bucketFn(roi(d))]++);
+  const dcROIBuckets = [0,0,0,0,0]; dcM.forEach(d=>dcROIBuckets[bucketFn(roi(d))]++);
+  mkChart('roiDist', { type:'bar', data:{ labels:roiBuckets, datasets:[
+    {label:'MCU',data:mcuROIBuckets,backgroundColor:'rgba(230,36,41,0.8)',borderRadius:4,borderWidth:0},
+    {label:'DC',data:dcROIBuckets,backgroundColor:'rgba(4,118,242,0.8)',borderRadius:4,borderWidth:0}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK}}}});
+
+  // Phase revenue
+  const mcuPhases = [...new Set(mcuM.map(d=>d.phase))].sort();
+  const dcPhases = [...new Set(dcM.map(d=>d.phase))].sort();
+  const allPhases = [...new Set([...mcuPhases,...dcPhases])];
+  mkChart('phaseRev', { type:'bar', data:{ labels:allPhases, datasets:[
+    {label:'MCU',data:allPhases.map(p=>sum(mcuM.filter(d=>d.phase===p).map(d=>d.bo))),backgroundColor:'rgba(230,36,41,0.85)',borderRadius:4,borderWidth:0},
+    {label:'DC',data:allPhases.map(p=>sum(dcM.filter(d=>d.phase===p).map(d=>d.bo))),backgroundColor:'rgba(4,118,242,0.85)',borderRadius:4,borderWidth:0}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{...TICK,maxRotation:30}},y:{grid:GRID,ticks:{...TICK,callback:v=>'$'+Math.round(v/1000)+'B'}}}}});
+
+  // Head to head
+  const metrics = [
+    {label:'Total Revenue',mVal:fmt(mcuRev),dVal:fmt(dcRev),mN:mcuRev,dN:dcRev},
+    {label:'Avg ROI',mVal:mcuROI.toFixed(2)+'x',dVal:dcROI.toFixed(2)+'x',mN:mcuROI,dN:dcROI},
+    {label:'Avg Budget',mVal:fmt(avg(mcuM.map(d=>d.budget))),dVal:fmt(avg(dcM.map(d=>d.budget))),mN:avg(mcuM.map(d=>d.budget)),dN:avg(dcM.map(d=>d.budget))},
+    {label:'Highest Grossing',mVal:fmt(Math.max(...mcuM.map(d=>d.bo))),dVal:fmt(Math.max(...dcM.map(d=>d.bo))),mN:Math.max(...mcuM.map(d=>d.bo)),dN:Math.max(...dcM.map(d=>d.bo))},
+  ];
+  document.getElementById('headToHead').innerHTML = metrics.map(m=>{
+    const tot = m.mN + m.dN; const mp = Math.round(m.mN/tot*100); const dp = 100-mp;
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px">
+        <span style="color:#ff6b6e;font-weight:500">${m.mVal}</span>
+        <span style="color:#8892a4;font-size:10px">${m.label}</span>
+        <span style="color:#5bb3ff;font-weight:500">${m.dVal}</span>
+      </div>
+      <div style="display:flex;height:6px;border-radius:3px;overflow:hidden">
+        <div style="width:${mp}%;background:#E62429"></div>
+        <div style="width:${dp}%;background:#0476F2"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAudience(data, mcu, dc) {
+  const withRev = data.filter(d=>d.bo>0);
+  const mcuWR = withRev.filter(d=>d.u==='MCU');
+  const dcWR = withRev.filter(d=>d.u==='DCEU');
+
+  mkChart('imdbScatter', { type:'scatter', data:{ datasets:[
+    {label:'MCU',data:mcuWR.map(d=>({x:d.imdb,y:d.bo})),backgroundColor:'rgba(230,36,41,0.7)',pointStyle:'circle'},
+    {label:'DC',data:dcWR.map(d=>({x:d.imdb,y:d.bo})),backgroundColor:'rgba(4,118,242,0.7)',pointStyle:'triangle'}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:d=>`IMDb: ${d.raw.x}, Rev: ${fmt(d.raw.y)}`}}},
+  scales:{x:{grid:GRID,ticks:{...TICK},title:{display:true,text:'IMDb Rating',color:'#8892a4',font:{size:10}},min:4,max:9},
+          y:{grid:GRID,ticks:{...TICK,callback:v=>'$'+Math.round(v/1000)+'B'},title:{display:true,text:'Revenue',color:'#8892a4',font:{size:10}}}}}});
+
+  document.getElementById('imdbInsight').textContent = `MCU avg IMDb: ${avg(mcu.map(d=>d.imdb)).toFixed(1)} vs DC: ${avg(dc.map(d=>d.imdb)).toFixed(1)}. Higher ratings correlate with stronger box office, but outliers exist on both sides.`;
+
+  mkChart('rtScatter', { type:'scatter', data:{ datasets:[
+    {label:'MCU',data:mcuWR.map(d=>({x:d.rt,y:d.bo})),backgroundColor:'rgba(230,36,41,0.7)',pointStyle:'circle'},
+    {label:'DC',data:dcWR.map(d=>({x:d.rt,y:d.bo})),backgroundColor:'rgba(4,118,242,0.7)',pointStyle:'triangle'}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:d=>`RT: ${d.raw.x}%, Rev: ${fmt(d.raw.y)}`}}},
+  scales:{x:{grid:GRID,ticks:TICK,title:{display:true,text:'RT Score (%)',color:'#8892a4',font:{size:10}},min:0,max:100},
+          y:{grid:GRID,ticks:{...TICK,callback:v=>'$'+Math.round(v/1000)+'B'},title:{display:true,text:'Revenue',color:'#8892a4',font:{size:10}}}}}});
+
+  // Genre performance
+  const genres = [...new Set(withRev.map(d=>d.genre))].sort();
+  mkChart('genrePerf', { type:'bar', data:{ labels:genres, datasets:[
+    {label:'MCU',data:genres.map(g=>avg(mcuWR.filter(d=>d.genre===g).map(d=>d.bo))||0),backgroundColor:'rgba(230,36,41,0.8)',borderRadius:4,borderWidth:0},
+    {label:'DC',data:genres.map(g=>avg(dcWR.filter(d=>d.genre===g).map(d=>d.bo))||0),backgroundColor:'rgba(4,118,242,0.8)',borderRadius:4,borderWidth:0}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{...TICK,maxRotation:30}},y:{grid:GRID,ticks:{...TICK,callback:v=>fmt(v)}}}}});
+
+  // IMDb distribution
+  const rBuckets=['5-6','6-7','7-8','8-9']; const rFn=r=>r<6?0:r<7?1:r<8?2:3;
+  const mcuRB=[0,0,0,0]; mcu.forEach(d=>mcuRB[rFn(d.imdb)]++);
+  const dcRB=[0,0,0,0]; dc.forEach(d=>dcRB[rFn(d.imdb)]++);
+  mkChart('ratingDist', { type:'bar', data:{ labels:rBuckets, datasets:[
+    {label:'MCU',data:mcuRB,backgroundColor:'rgba(230,36,41,0.8)',borderRadius:4,borderWidth:0},
+    {label:'DC',data:dcRB,backgroundColor:'rgba(4,118,242,0.8)',borderRadius:4,borderWidth:0}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK}}}});
+
+  // RT distribution
+  const rtB=['0-40','40-60','60-80','80-100']; const rtFn=r=>r<40?0:r<60?1:r<80?2:3;
+  const mcuRTB=[0,0,0,0]; mcu.forEach(d=>mcuRTB[rtFn(d.rt)]++);
+  const dcRTB=[0,0,0,0]; dc.forEach(d=>dcRTB[rtFn(d.rt)]++);
+  mkChart('rtDist', { type:'bar', data:{ labels:rtB, datasets:[
+    {label:'MCU',data:mcuRTB,backgroundColor:'rgba(230,36,41,0.8)',borderRadius:4,borderWidth:0},
+    {label:'DC',data:dcRTB,backgroundColor:'rgba(4,118,242,0.8)',borderRadius:4,borderWidth:0}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK}}}});
+}
+
+function renderStrategy(data, mcu, dc, mcuM, dcM) {
+  const mcuTeam = mcuM.filter(d=>d.teamup===1); const mcuSolo = mcuM.filter(d=>d.teamup===0);
+  const dcTeam = dcM.filter(d=>d.teamup===1); const dcSolo = dcM.filter(d=>d.teamup===0);
+
+  mkChart('teamupChart', { type:'bar', data:{ labels:['Avg Revenue','Avg IMDb','Avg RT Score'], datasets:[
+    {label:'MCU Team-Up',data:[avg(mcuTeam.map(d=>d.bo)).toFixed(0), avg(mcuTeam.map(d=>d.imdb)).toFixed(1), avg(mcuTeam.map(d=>d.rt)).toFixed(0)],backgroundColor:'rgba(230,36,41,0.9)',borderRadius:4,borderWidth:0},
+    {label:'MCU Solo',data:[avg(mcuSolo.map(d=>d.bo)).toFixed(0), avg(mcuSolo.map(d=>d.imdb)).toFixed(1), avg(mcuSolo.map(d=>d.rt)).toFixed(0)],backgroundColor:'rgba(230,36,41,0.3)',borderRadius:4,borderWidth:0},
+    {label:'DC Team-Up',data:[avg(dcTeam.map(d=>d.bo)).toFixed(0), avg(dcTeam.map(d=>d.imdb)).toFixed(1), avg(dcTeam.map(d=>d.rt)).toFixed(0)],backgroundColor:'rgba(4,118,242,0.9)',borderRadius:4,borderWidth:0},
+    {label:'DC Solo',data:[avg(dcSolo.map(d=>d.bo)).toFixed(0), avg(dcSolo.map(d=>d.imdb)).toFixed(1), avg(dcSolo.map(d=>d.rt)).toFixed(0)],backgroundColor:'rgba(4,118,242,0.3)',borderRadius:4,borderWidth:0},
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK}}}});
+
+  const mcuTeamBoost = avg(mcuTeam.map(d=>d.bo)) - avg(mcuSolo.map(d=>d.bo));
+  document.getElementById('teamupInsight').textContent = `MCU team-up films earn ${fmt(Math.abs(mcuTeamBoost))} ${mcuTeamBoost>0?'more':'less'} on average than solo outings. DC team-up films earn ${fmt(Math.abs(avg(dcTeam.map(d=>d.bo))-avg(dcSolo.map(d=>d.bo))))} ${avg(dcTeam.map(d=>d.bo))>avg(dcSolo.map(d=>d.bo))?'more':'less'} per outing.`;
+
+  // ROI over time (consistency)
+  const years = [...new Set(data.filter(d=>d.bo>0).map(d=>d.year))].sort();
+  mkChart('consistencyChart', { type:'line', data:{ labels:years, datasets:[
+    {label:'MCU ROI',data:years.map(y=>{const ms=mcuM.filter(d=>d.year===y);return ms.length?avg(ms.map(roi)).toFixed(2):null}),borderColor:'#E62429',tension:0.4,pointRadius:3,pointBackgroundColor:'#E62429',spanGaps:true},
+    {label:'DC ROI',data:years.map(y=>{const ds=dcM.filter(d=>d.year===y);return ds.length?avg(ds.map(roi)).toFixed(2):null}),borderColor:'#0476F2',tension:0.4,pointRadius:3,pointBackgroundColor:'#0476F2',spanGaps:true}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:{...TICK,callback:v=>v+'x'}}}}});
+
+  // Variance stats
+  const mcuROIs = mcuM.map(roi); const dcROIs = dcM.map(roi);
+  const variance = arr => { const m=avg(arr); return avg(arr.map(v=>(v-m)**2)); };
+  document.getElementById('consistencyInsight').textContent = `MCU ROI variance: ${variance(mcuROIs).toFixed(2)} vs DC: ${variance(dcROIs).toFixed(2)}. ${variance(mcuROIs)<variance(dcROIs)?'MCU is more consistent in returns.':'DC shows higher ROI variability.'}`;
+
+  // Movies vs shows
+  mkChart('typeChart', { type:'bar', data:{ labels:['MCU Movies','DC Movies','MCU Shows','DC Shows'], datasets:[
+    {label:'Avg IMDb',data:[avg(mcu.filter(d=>d.type==='Movie').map(d=>d.imdb)).toFixed(1),avg(dc.filter(d=>d.type==='Movie').map(d=>d.imdb)).toFixed(1),avg(mcu.filter(d=>d.type==='Show').map(d=>d.imdb)).toFixed(1),avg(dc.filter(d=>d.type==='Show').map(d=>d.imdb)).toFixed(1)],
+    backgroundColor:['#E62429','#0476F2','rgba(230,36,41,0.5)','rgba(4,118,242,0.5)'],borderRadius:4,borderWidth:0}
+  ]}, options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:TICK},y:{grid:GRID,ticks:TICK,min:5}}}});
+
+  const mcuROI_ = avg(mcuM.map(roi)); const dcROI_ = avg(dcM.map(roi));
+  const mcuRT = avg(mcu.map(d=>d.rt)); const dcRT = avg(dc.map(d=>d.rt));
+  document.getElementById('strategySummary').innerHTML = [
+    {icon:'💰', title:'Financial dominance', text:`MCU's avg ROI of ${mcuROI_.toFixed(1)}x vs DC's ${dcROI_.toFixed(1)}x shows Marvel's stronger commercial consistency.`},
+    {icon:'⭐', title:'Audience alignment', text:`MCU avg IMDb ${avg(mcu.map(d=>d.imdb)).toFixed(1)} vs DC ${avg(dc.map(d=>d.imdb)).toFixed(1)}. Marvel scores higher with both critics and audiences.`},
+    {icon:'🦸', title:'Team-up formula', text:`MCU team-up films average ${fmt(avg(mcuTeam.map(d=>d.bo)))} in revenue — crossovers drive MCU's biggest blockbusters.`},
+    {icon:'📈', title:'Phase strategy', text:`MCU's Phase 3 generated the highest revenue concentration. DC's Snyder Era was more polarizing but commercially significant.`},
+  ].map(s=>`<div style="margin-bottom:12px;padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--border)">
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <span style="font-size:14px">${s.icon}</span>
+      <div><div style="font-size:11px;font-weight:500;color:var(--accent);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px">${s.title}</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">${s.text}</div></div>
+    </div></div>`).join('');
+}
+
+// Init
+updateCharts();
+</script>
